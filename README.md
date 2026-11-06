@@ -5,7 +5,7 @@ A personal hub for projects, products and a build-log blog.
 - **Projects**: showcase pages with links, tags, related products and a build log.
 - **Blog / forum**: Markdown posts with tag filters and threaded comments from signed-in visitors.
 - **Shop**: paid digital downloads, physical goods (with shipping address collection) and free downloads, a cart, Stripe Checkout, and star reviews with a "verified purchase" badge.
-- **Admin editor** at `/admin`: edit site text, projects, posts and products with a Markdown editor (live preview, drag-and-drop image upload), upload downloadable files, moderate comments and reviews, and track orders.
+- **Admin editor** at `/admin`: upload a logo, favicon, hero image and page banners; edit the wording on every section (headings, intros, buttons, menu labels); and manage projects, posts and products with a Markdown editor (live preview, drag-and-drop image upload), upload downloadable files, moderate comments and reviews, and track orders.
 - White-and-blue theme. Change the `--color-brand-*` values in `src/app/globals.css` to re-tint it.
 
 **Stack:** Next.js 16 (React 19, App Router) · Tailwind CSS 4 · Supabase (Postgres, Auth, Storage) · Stripe Checkout · deployed to **Cloudflare Workers** with [OpenNext](https://opennext.js.org/cloudflare).
@@ -15,7 +15,7 @@ A personal hub for projects, products and a build-log blog.
 ## 1. Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor**, paste the contents of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) and run it. This creates the tables, row-level security policies and two storage buckets (`media` public, `downloads` private).
+2. Open **SQL Editor** and run each file in [`supabase/migrations/`](supabase/migrations) in order (`0001_init.sql`, then `0002_site_content.sql`). This creates the tables, row-level security policies and two storage buckets (`media` public, `downloads` private).
 3. **Authentication → URL Configuration**
    - Site URL: your production URL (e.g. `https://site-1.<you>.workers.dev`)
    - Redirect URLs: add `http://localhost:3000/auth/callback`, `http://localhost:8787/auth/callback` and `https://<your-domain>/auth/callback`
@@ -87,6 +87,7 @@ The Worker name is `site-1` (set in `wrangler.jsonc`). After the first deploy, u
 ## How it fits together
 
 - `src/app/`: pages. `admin/` is the editor; `actions/` holds the Server Actions (all admin actions call `requireAdmin()`).
+- `src/lib/content.ts`: every editable piece of site text and imagery, with defaults. Add a field there to make new text editable.
 - `src/lib/data.ts`: read queries. `src/lib/auth.ts`: current user and admin guards.
 - `src/proxy.ts`: refreshes the Supabase session cookie on each request.
 - `src/app/api/stripe/webhook/route.ts`: records orders after payment (idempotent, decrements stock).

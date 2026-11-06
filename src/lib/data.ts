@@ -13,13 +13,15 @@ const DEFAULT_SETTINGS: SiteSettings = {
   footer_text: "",
   social_links: [],
   currency: "usd",
+  content: {},
   updated_at: new Date(0).toISOString(),
 };
 
 export const getSettings = cache(async (): Promise<SiteSettings> => {
   const supabase = await createClient();
   const { data } = await supabase.from("site_settings").select("*").eq("id", 1).maybeSingle<SiteSettings>();
-  return data ?? DEFAULT_SETTINGS;
+  // Spread over the defaults so the site still works before a new migration is run.
+  return { ...DEFAULT_SETTINGS, ...(data ?? {}), content: data?.content ?? {} };
 });
 
 // ---------- Projects ----------

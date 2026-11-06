@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CartView } from "@/components/CartView";
 import { getCurrentUser } from "@/lib/auth";
+import { text } from "@/lib/content";
 import { getSettings } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Cart" };
@@ -9,8 +10,12 @@ export default async function CartPage() {
   const [settings, user] = await Promise.all([getSettings(), getCurrentUser()]);
   return (
     <div className="container-page py-14">
-      <h1 className="mb-8 text-3xl font-bold">Your cart</h1>
-      <CartView currency={settings.currency} signedIn={!!user} />
+      <h1 className="mb-8 text-3xl font-bold">{text(settings, "cart_title")}</h1>
+      <CartView
+        currency={settings.currency}
+        signedIn={!!user}
+        labels={{ empty: text(settings, "cart_empty"), note: text(settings, "cart_note"), checkout: text(settings, "checkout_button") }}
+      />
     </div>
   );
 }

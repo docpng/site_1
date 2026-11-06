@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { deleteComment } from "@/app/actions/community";
 import { getCurrentUser } from "@/lib/auth";
-import { listComments } from "@/lib/data";
+import { text } from "@/lib/content";
+import { getSettings, listComments } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import type { Comment } from "@/lib/types";
 import { Avatar } from "./Avatar";
 import { CommentForm } from "./CommentForm";
 
 export async function CommentSection({ postId, slug }: { postId: string; slug: string }) {
-  const [comments, user] = await Promise.all([listComments(postId), getCurrentUser()]);
+  const [comments, user, settings] = await Promise.all([listComments(postId), getCurrentUser(), getSettings()]);
   const visible = comments.filter((c) => !c.hidden);
   const roots = visible.filter((c) => !c.parent_id);
   const repliesTo = (id: string) => visible.filter((c) => c.parent_id === id);
@@ -16,18 +17,20 @@ export async function CommentSection({ postId, slug }: { postId: string; slug: s
 
   return (
     <section className="mt-16 border-t border-line pt-10" id="comments">
-      <h2 className="text-2xl font-bold">Comments ({visible.length})</h2>
+      <h2 className="text-2xl font-bold">
+        {text(settings, "comments_title")} ({visible.length})
+      </h2>
 
       <div className="mt-6">
         {user ? (
-          <CommentForm postId={postId} slug={slug} />
+          <CommentForm postId={postId} slug={slug} placeholder={text(settings, "comments_placeholder")} />
         ) : (
-          <div className="rounded-xl bg-brand-50 p-5 text-sm">
-            <Link href={`/login?next=${encodeURIComponent(`/blog/${slug}#comments`)}`} className="font-medium text-brand-700 hover:underline">
-              Sign in
-            </Link>{" "}
-            to leave a comment.
-          </div>
+          <Link
+            href={`/login?next=${encodeURIComponent(`/blog/${slug}#comments`)}`}
+            className="block rounded-xl bg-brand-50 p-5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+          >
+            {text(settings, "comments_signin")}
+          </Link>
         )}
       </div>
 

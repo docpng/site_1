@@ -1,3 +1,5 @@
+import type { SiteContent } from "./content";
+
 export type ProductKind = "digital" | "physical" | "free";
 
 export type SocialLink = { label: string; url: string };
@@ -12,6 +14,7 @@ export type SiteSettings = {
   footer_text: string;
   social_links: SocialLink[];
   currency: string;
+  content: SiteContent;
   updated_at: string;
 };
 

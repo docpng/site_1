@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { text } from "@/lib/content";
 import { getSettings } from "@/lib/data";
 
 export async function Footer() {
@@ -7,7 +8,13 @@ export async function Footer() {
     <footer className="mt-24 border-t border-line bg-brand-50/50">
       <div className="container-page flex flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-semibold text-ink">{settings.site_name}</p>
+          <p className="flex items-center gap-2 font-semibold text-ink">
+            {text(settings, "logo_url") && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={text(settings, "logo_url")} alt="" className="h-6 w-auto max-w-28 object-contain" />
+            )}
+            {settings.site_name}
+          </p>
           <p className="mt-1 text-sm text-muted">{settings.footer_text || settings.tagline}</p>
         </div>
         <div className="flex flex-wrap gap-4 text-sm">

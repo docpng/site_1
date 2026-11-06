@@ -5,6 +5,7 @@ import { AddToCart } from "@/components/AddToCart";
 import { Markdown } from "@/components/Markdown";
 import { ReviewSection } from "@/components/ReviewSection";
 import { getCurrentUser } from "@/lib/auth";
+import { text } from "@/lib/content";
 import { getProduct, getSettings, hasPurchased } from "@/lib/data";
 import { formatPrice, kindLabel } from "@/lib/format";
 
@@ -25,7 +26,7 @@ export default async function ProductPage({ params }: PageProps<"/shop/[slug]">)
   return (
     <div className="container-page py-14">
       <Link href="/shop" className="text-sm text-brand-700 hover:underline">
-        ← Back to shop
+        {text(settings, "shop_back")}
       </Link>
       <div className="mt-6 grid gap-10 lg:grid-cols-2">
         <div className="space-y-3">
@@ -60,7 +61,8 @@ export default async function ProductPage({ params }: PageProps<"/shop/[slug]">)
             {product.kind === "free" ? (
               product.file_path ? (
                 <a href={`/api/download/${product.id}`} className="btn-primary px-6 py-2.5">
-                  Download{product.file_name ? ` ${product.file_name}` : ""}
+                  {text(settings, "free_download")}
+                  {product.file_name ? ` ${product.file_name}` : ""}
                 </a>
               ) : (
                 <p className="text-sm text-muted">Download coming soon.</p>
@@ -68,12 +70,12 @@ export default async function ProductPage({ params }: PageProps<"/shop/[slug]">)
             ) : owned ? (
               <div className="flex flex-wrap items-center gap-3">
                 <a href={`/api/download/${product.id}`} className="btn-primary px-6 py-2.5">
-                  Download your copy
+                  {text(settings, "owned_download")}
                 </a>
                 <span className="text-sm text-muted">You own this.</span>
               </div>
             ) : (
-              <AddToCart product={product} />
+              <AddToCart product={product} labels={{ add: text(settings, "add_to_cart"), soldOut: text(settings, "sold_out") }} />
             )}
           </div>
 
