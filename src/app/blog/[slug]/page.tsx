@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CommentSection } from "@/components/CommentSection";
 import { Markdown } from "@/components/Markdown";
-import { getPost } from "@/lib/data";
+import { text } from "@/lib/content";
+import { getPost, getSettings } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 
 export async function generateMetadata({ params }: PageProps<"/blog/[slug]">): Promise<Metadata> {
@@ -13,13 +14,13 @@ export async function generateMetadata({ params }: PageProps<"/blog/[slug]">): P
 
 export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
   const { slug } = await params;
-  const post = await getPost(slug);
+  const [post, settings] = await Promise.all([getPost(slug), getSettings()]);
   if (!post) notFound();
 
   return (
     <article className="container-page max-w-3xl py-14">
       <Link href="/blog" className="text-sm text-brand-700 hover:underline">
-        ← All posts
+        {text(settings, "blog_back")}
       </Link>
       <p className="mt-6 text-sm font-medium text-brand-600">{formatDate(post.published_at ?? post.created_at)}</p>
       <h1 className="mt-2 text-4xl font-bold tracking-tight">{post.title}</h1>

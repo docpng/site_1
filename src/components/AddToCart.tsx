@@ -5,14 +5,17 @@ import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { useCart } from "./CartProvider";
 
-export function AddToCart({ product }: { product: Pick<Product, "id" | "slug" | "title" | "price_cents" | "kind" | "images" | "stock"> }) {
+export function AddToCart({ product, labels }: {
+  product: Pick<Product, "id" | "slug" | "title" | "price_cents" | "kind" | "images" | "stock">;
+  labels: { add: string; soldOut: string };
+}) {
   const { add, items } = useCart();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const soldOut = product.kind === "physical" && product.stock !== null && product.stock <= 0;
   const inCart = items.some((i) => i.id === product.id);
 
-  if (soldOut) return <p className="font-medium text-muted">Sold out</p>;
+  if (soldOut) return <p className="font-medium text-muted">{labels.soldOut}</p>;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -46,7 +49,7 @@ export function AddToCart({ product }: { product: Pick<Product, "id" | "slug" | 
           setAdded(true);
         }}
       >
-        {product.kind === "digital" && inCart ? "In your cart" : "Add to cart"}
+        {product.kind === "digital" && inCart ? "In your cart" : labels.add}
       </button>
       {(added || inCart) && (
         <Link href="/cart" className="text-sm font-medium text-brand-700 hover:underline">

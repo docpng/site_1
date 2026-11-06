@@ -7,7 +7,11 @@ import { startCheckout } from "@/app/actions/checkout";
 import { formatPrice, kindLabel } from "@/lib/format";
 import { useCart } from "./CartProvider";
 
-export function CartView({ currency, signedIn }: { currency: string; signedIn: boolean }) {
+export function CartView({ currency, signedIn, labels }: {
+  currency: string;
+  signedIn: boolean;
+  labels: { empty: string; note: string; checkout: string };
+}) {
   const { items, ready, subtotal, setQuantity, remove } = useCart();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -18,7 +22,7 @@ export function CartView({ currency, signedIn }: { currency: string; signedIn: b
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-10 text-center">
-        <p className="font-medium">Your cart is empty.</p>
+        <p className="font-medium">{labels.empty}</p>
         <Link href="/shop" className="btn-primary mt-6">
           Browse the shop
         </Link>
@@ -82,10 +86,10 @@ export function CartView({ currency, signedIn }: { currency: string; signedIn: b
           <span>Subtotal</span>
           <span className="font-semibold">{formatPrice(subtotal, currency)}</span>
         </div>
-        <p className="mt-2 text-xs text-muted">Final prices, taxes and shipping are confirmed at checkout.</p>
+        <p className="mt-2 text-xs text-muted">{labels.note}</p>
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
         <button onClick={checkout} disabled={pending} className="btn-primary mt-6 w-full py-2.5">
-          {pending ? "Starting checkout…" : signedIn ? "Checkout" : "Sign in to checkout"}
+          {pending ? "Starting checkout…" : signedIn ? labels.checkout : "Sign in to checkout"}
         </button>
         <p className="mt-3 text-center text-xs text-muted">Secure payment by Stripe</p>
       </aside>

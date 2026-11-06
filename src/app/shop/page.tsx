@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductCard } from "@/components/Cards";
 import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
+import { text, type ContentKey } from "@/lib/content";
 import { getSettings, listProducts } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Shop" };
 
-const FILTERS = [
-  { value: "", label: "Everything" },
-  { value: "digital", label: "Digital" },
-  { value: "physical", label: "Physical" },
-  { value: "free", label: "Free downloads" },
+const FILTERS: { value: string; label: ContentKey }[] = [
+  { value: "", label: "shop_filter_all" },
+  { value: "digital", label: "shop_filter_digital" },
+  { value: "physical", label: "shop_filter_physical" },
+  { value: "free", label: "shop_filter_free" },
 ];
 
 export default async function ShopPage({ searchParams }: PageProps<"/shop">) {
@@ -20,10 +22,9 @@ export default async function ShopPage({ searchParams }: PageProps<"/shop">) {
 
   return (
     <div className="container-page py-14">
-      <h1 className="text-3xl font-bold">Shop</h1>
-      <p className="mt-2 text-muted">Things I make: digital downloads, physical goods, and free files.</p>
+      <PageHeader title={text(settings, "shop_title")} intro={text(settings, "shop_intro")} banner={text(settings, "shop_banner_url")} />
 
-      <div className="mt-8 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <Link
             key={f.value}
@@ -32,14 +33,14 @@ export default async function ShopPage({ searchParams }: PageProps<"/shop">) {
               f.value === active ? "border-brand-600 bg-brand-600 text-white" : "border-line text-slate-600 hover:border-brand-300 hover:text-brand-700"
             }`}
           >
-            {f.label}
+            {text(settings, f.label)}
           </Link>
         ))}
       </div>
 
       <div className="mt-8">
         {products.length === 0 ? (
-          <EmptyState title="Nothing here yet" />
+          <EmptyState title={text(settings, "shop_empty")} />
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((p) => (

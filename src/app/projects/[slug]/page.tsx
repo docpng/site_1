@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostCard, ProductCard } from "@/components/Cards";
 import { Markdown } from "@/components/Markdown";
+import { text } from "@/lib/content";
 import { getProject, getSettings, listPosts, listProducts } from "@/lib/data";
 
 export async function generateMetadata({ params }: PageProps<"/projects/[slug]">): Promise<Metadata> {
@@ -34,12 +35,12 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
       <div className="mt-6 flex flex-wrap gap-3">
         {project.live_url && (
           <a href={project.live_url} target="_blank" rel="noreferrer" className="btn-primary">
-            Visit project ↗
+            {text(settings, "project_visit")}
           </a>
         )}
         {project.repo_url && (
           <a href={project.repo_url} target="_blank" rel="noreferrer" className="btn-secondary">
-            Source code ↗
+            {text(settings, "project_source")}
           </a>
         )}
       </div>
@@ -51,7 +52,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
 
       {products.length > 0 && (
         <section className="mt-16">
-          <h2 className="mb-6 text-2xl font-bold">Get it</h2>
+          <h2 className="mb-6 text-2xl font-bold">{text(settings, "project_products_title")}</h2>
           <div className="grid gap-6 sm:grid-cols-2">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} currency={settings.currency} />
@@ -62,7 +63,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
 
       {posts.length > 0 && (
         <section className="mt-16">
-          <h2 className="mb-6 text-2xl font-bold">Build log</h2>
+          <h2 className="mb-6 text-2xl font-bold">{text(settings, "project_log_title")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {posts.map((p) => (
               <PostCard key={p.id} post={p} />

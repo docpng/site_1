@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { deleteReview } from "@/app/actions/community";
 import { getCurrentUser } from "@/lib/auth";
-import { listReviews } from "@/lib/data";
+import { text } from "@/lib/content";
+import { getSettings, listReviews } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 import { Avatar } from "./Avatar";
 import { ReviewForm } from "./ReviewForm";
 import { Stars } from "./Stars";
 
 export async function ReviewSection({ productId, slug }: { productId: string; slug: string }) {
-  const [reviews, user] = await Promise.all([listReviews(productId), getCurrentUser()]);
+  const [reviews, user, settings] = await Promise.all([listReviews(productId), getCurrentUser(), getSettings()]);
   const visible = reviews.filter((r) => !r.hidden);
   const mine = user ? reviews.find((r) => r.user_id === user.id) : undefined;
   const avg = visible.length ? visible.reduce((n, r) => n + r.rating, 0) / visible.length : 0;
@@ -16,7 +17,7 @@ export async function ReviewSection({ productId, slug }: { productId: string; sl
   return (
     <section className="mt-16 border-t border-line pt-10" id="reviews">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-2xl font-bold">Reviews</h2>
+        <h2 className="text-2xl font-bold">{text(settings, "reviews_title")}</h2>
         {visible.length > 0 && (
           <span className="flex items-center gap-2 text-sm text-muted">
             <Stars rating={avg} /> {avg.toFixed(1)} · {visible.length} review{visible.length === 1 ? "" : "s"}
@@ -26,7 +27,7 @@ export async function ReviewSection({ productId, slug }: { productId: string; sl
 
       <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_380px]">
         <ul className="space-y-6">
-          {visible.length === 0 && <li className="text-sm text-muted">No reviews yet. Be the first!</li>}
+          {visible.length === 0 && <li className="text-sm text-muted">{text(settings, "reviews_empty")}</li>}
           {visible.map((r) => (
             <li key={r.id} className="flex gap-3">
               <Avatar author={r.author} />
@@ -60,12 +61,12 @@ export async function ReviewSection({ productId, slug }: { productId: string; sl
               <ReviewForm productId={productId} slug={slug} existing={mine} />
             </>
           ) : (
-            <div className="rounded-xl bg-brand-50 p-5 text-sm">
-              <Link href={`/login?next=${encodeURIComponent(`/shop/${slug}#reviews`)}`} className="font-medium text-brand-700 hover:underline">
-                Sign in
-              </Link>{" "}
-              to leave a review.
-            </div>
+            <Link
+              href={`/login?next=${encodeURIComponent(`/shop/${slug}#reviews`)}`}
+              className="block rounded-xl bg-brand-50 p-5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+            >
+              {text(settings, "reviews_signin")}
+            </Link>
           )}
         </div>
       </div>

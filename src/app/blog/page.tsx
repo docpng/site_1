@@ -2,24 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PostCard } from "@/components/Cards";
 import { EmptyState } from "@/components/EmptyState";
-import { listPosts } from "@/lib/data";
+import { PageHeader } from "@/components/PageHeader";
+import { text } from "@/lib/content";
+import { getSettings, listPosts } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Blog" };
 
 export default async function BlogPage({ searchParams }: PageProps<"/blog">) {
   const { tag } = await searchParams;
   const activeTag = typeof tag === "string" ? tag : undefined;
-  const [posts, all] = await Promise.all([listPosts({ tag: activeTag }), listPosts()]);
+  const [settings, posts, all] = await Promise.all([getSettings(), listPosts({ tag: activeTag }), listPosts()]);
   const tags = [...new Set(all.flatMap((p) => p.tags))].sort();
 
   return (
     <div className="container-page py-14">
-      <h1 className="text-3xl font-bold">Blog</h1>
-      <p className="mt-2 text-muted">Build logs, write-ups and notes. Sign in to join the discussion.</p>
+      <PageHeader title={text(settings, "blog_title")} intro={text(settings, "blog_intro")} banner={text(settings, "blog_banner_url")} />
 
       {tags.length > 0 && (
-        <div className="mt-8 flex flex-wrap gap-2">
-          <TagLink href="/blog" active={!activeTag} label="All" />
+        <div className="flex flex-wrap gap-2">
+          <TagLink href="/blog" active={!activeTag} label={text(settings, "blog_all_tags")} />
           {tags.map((t) => (
             <TagLink key={t} href={`/blog?tag=${encodeURIComponent(t)}`} active={t === activeTag} label={t} />
           ))}
@@ -28,7 +29,7 @@ export default async function BlogPage({ searchParams }: PageProps<"/blog">) {
 
       <div className="mt-8">
         {posts.length === 0 ? (
-          <EmptyState title="No posts yet" />
+          <EmptyState title={text(settings, "blog_empty")} />
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {posts.map((p) => (

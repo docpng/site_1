@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { CONTENT_FIELDS, type SiteContent } from "@/lib/content";
 import { parseTags, slugify } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductKind, SocialLink } from "@/lib/types";
@@ -19,6 +20,9 @@ const int = (fd: FormData, key: string, fallback = 0) => {
 
 function friendlyError(error: { code?: string; message: string }) {
   if (error.code === "23505") return "That slug is already used. Pick a different one.";
+  if (error.code === "PGRST204" || /column .*content/.test(error.message)) {
+    return "The database needs a small update first: run supabase/migrations/0002_site_content.sql in the Supabase SQL editor, then save again.";
+  }
   if (error.code === "23514") return "Some values aren't allowed. Paid items need a price of at least 0.50; free items must be 0.";
   return error.message;
 }
@@ -41,6 +45,14 @@ export async function saveSettings(_prev: AdminFormState, fd: FormData): Promise
     })
     .filter((l) => l.label && /^https?:\/\//.test(l.url));
 
+  // Only accept the fields defined in src/lib/content.ts.
+  const content: SiteContent = {};
+  for (const field of CONTENT_FIELDS) {
+    const key = field.key as keyof SiteContent;
+    if (field.type === "toggle") content[key] = bool(fd, `content.${key}`) ? "true" : "false";
+    else content[key] = String(fd.get(`content.${key}`) ?? "").trim().slice(0, 2000);
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("site_settings")
@@ -53,6 +65,7 @@ export async function saveSettings(_prev: AdminFormState, fd: FormData): Promise
       footer_text: str(fd, "footer_text"),
       currency: (str(fd, "currency") || "usd").toLowerCase(),
       social_links,
+      content,
     })
     .eq("id", 1);
 
