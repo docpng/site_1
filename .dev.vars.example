@@ -1,0 +1,15 @@
+# Copy to .dev.vars for local development (`npm run dev` and `npm run preview`).
+# In production, set each of these with `npx wrangler secret put NAME`
+# (or Cloudflare dashboard -> site-1 -> Settings -> Variables and Secrets).
+
+# Google sign-in (Google Cloud Console -> APIs & Services -> Credentials)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# GitHub sign-in (GitHub -> Settings -> Developer settings -> OAuth Apps)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Stripe (Dashboard -> Developers)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...

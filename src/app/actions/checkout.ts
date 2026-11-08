@@ -5,8 +5,8 @@ import { getSettings } from "@/lib/data";
 import { SHIPPING_COUNTRIES } from "@/lib/shop";
 import { siteUrl } from "@/lib/site";
 import { getStripe } from "@/lib/stripe";
-import { createClient } from "@/lib/supabase/server";
-import type { Product } from "@/lib/types";
+import { toProduct } from "@/lib/data";
+import { all } from "@/lib/db";
 
 type CheckoutResult = { url?: string; error?: string; needsLogin?: boolean };
 
@@ -17,14 +17,12 @@ export async function startCheckout(items: { id: string; quantity: number }[]): 
 
   // Never trust prices from the browser: load them from the database.
   const ids = [...new Set(items.map((i) => String(i.id)))].slice(0, 50);
-  const supabase = await createClient();
-  const { data: products } = await supabase
-    .from("products")
-    .select("*")
-    .in("id", ids)
-    .eq("published", true)
-    .neq("kind", "free")
-    .returns<Product[]>();
+  const products = (
+    await all<Record<string, unknown>>(
+      `SELECT * FROM products WHERE published = 1 AND kind <> 'free' AND id IN (${ids.map(() => "?").join(",")})`,
+      ...ids,
+    )
+  ).map(toProduct);
 
   if (!products?.length) return { error: "Those items are no longer available." };
 
@@ -48,7 +46,11 @@ export async function startCheckout(items: { id: string; quantity: number }[]): 
         product_data: {
           name: p.title,
           description: p.summary || undefined,
-          images: p.images.filter((src) => src.startsWith("https://")).slice(0, 1),
+          // Stripe needs absolute https URLs for product images.
+          images: p.images
+            .map((src) => (src.startsWith("/") ? `${siteUrl()}${src}` : src))
+            .filter((src) => src.startsWith("https://"))
+            .slice(0, 1),
           metadata: { product_id: p.id, kind: p.kind },
         },
       },

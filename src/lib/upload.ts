@@ -1,31 +1,26 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+type UploadResult = { url?: string; key?: string; error?: string };
 
-function safeName(name: string) {
-  const dot = name.lastIndexOf(".");
-  const base = (dot > 0 ? name.slice(0, dot) : name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "file";
-  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-  return ext ? `${base}.${ext}` : base;
+async function upload(file: File, kind: "media" | "download", folder: string): Promise<UploadResult> {
+  const body = new FormData();
+  body.set("file", file);
+  body.set("kind", kind);
+  body.set("folder", folder);
+  const res = await fetch("/api/admin/upload", { method: "POST", body });
+  const data = (await res.json().catch(() => ({}))) as UploadResult;
+  if (!res.ok) throw new Error(data.error ?? `Upload failed (${res.status})`);
+  return data;
 }
 
-/** Uploads to the public "media" bucket and returns the public URL. */
+/** Uploads a public image and returns its URL (served from /files/media/...). */
 export async function uploadMedia(file: File, folder = "uploads") {
-  const supabase = createClient();
-  const path = `${folder}/${Date.now()}-${safeName(file.name)}`;
-  const { error } = await supabase.storage.from("media").upload(path, file, { contentType: file.type, upsert: false });
-  if (error) throw error;
-  return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
+  const { url } = await upload(file, "media", folder);
+  return url!;
 }
 
-/** Uploads to the private "downloads" bucket and returns the object path. */
+/** Uploads a private product file and returns its storage key. */
 export async function uploadDownload(file: File) {
-  const supabase = createClient();
-  const path = `products/${Date.now()}-${safeName(file.name)}`;
-  const { error } = await supabase.storage.from("downloads").upload(path, file, {
-    contentType: file.type || "application/octet-stream",
-    upsert: false,
-  });
-  if (error) throw error;
-  return path;
+  const { key } = await upload(file, "download", "products");
+  return key!;
 }

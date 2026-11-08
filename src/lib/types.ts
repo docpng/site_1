@@ -5,7 +5,6 @@ export type ProductKind = "digital" | "physical" | "free";
 export type SocialLink = { label: string; url: string };
 
 export type SiteSettings = {
-  id: number;
   site_name: string;
   tagline: string;
   hero_title: string;
@@ -20,6 +19,7 @@ export type SiteSettings = {
 
 export type Profile = {
   id: string;
+  email: string | null;
   display_name: string;
   avatar_url: string | null;
   is_admin: boolean;
@@ -67,7 +67,7 @@ export type Product = {
   kind: ProductKind;
   price_cents: number;
   images: string[];
-  file_path: string | null;
+  file_key: string | null;
   file_name: string | null;
   stock: number | null;
   project_id: string | null;

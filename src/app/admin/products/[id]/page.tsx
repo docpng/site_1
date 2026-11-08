@@ -6,23 +6,22 @@ import { DeleteButton } from "@/components/admin/DeleteButton";
 import { GalleryField } from "@/components/admin/GalleryField";
 import { MarkdownEditor } from "@/components/admin/MarkdownEditor";
 import { ProductTypeFields } from "@/components/admin/ProductTypeFields";
-import { getSettings } from "@/lib/data";
-import { createClient } from "@/lib/supabase/server";
+import { getSettings, toProduct } from "@/lib/data";
+import { all, first } from "@/lib/db";
 import type { Product } from "@/lib/types";
 
 export default async function EditProduct({ params, searchParams }: PageProps<"/admin/products/[id]">) {
   const { id } = await params;
   const { saved } = await searchParams;
   const isNew = id === "new";
-  const supabase = await createClient();
   let p: Product | null = null;
   if (!isNew) {
-    const { data } = await supabase.from("products").select("*").eq("id", id).maybeSingle<Product>();
-    if (!data) notFound();
-    p = data;
+    const row = await first<Record<string, unknown>>("SELECT * FROM products WHERE id = ?", id);
+    if (!row) notFound();
+    p = toProduct(row);
   }
-  const [{ data: projects }, settings] = await Promise.all([
-    supabase.from("projects").select("id, title").order("title"),
+  const [projects, settings] = await Promise.all([
+    all<{ id: string; title: string }>("SELECT id, title FROM projects ORDER BY title"),
     getSettings(),
   ]);
 
@@ -46,7 +45,7 @@ export default async function EditProduct({ params, searchParams }: PageProps<"/
           kind={p?.kind ?? "digital"}
           price={p && p.kind !== "free" ? (p.price_cents / 100).toFixed(2) : ""}
           stock={p?.stock ?? null}
-          filePath={p?.file_path ?? null}
+          filePath={p?.file_key ?? null}
           fileName={p?.file_name ?? null}
           currency={settings.currency}
         />

@@ -5,7 +5,8 @@ import { AdminForm, Field, TextArea, Toggle } from "@/components/admin/AdminForm
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { ImageField } from "@/components/admin/ImageField";
 import { MarkdownEditor } from "@/components/admin/MarkdownEditor";
-import { createClient } from "@/lib/supabase/server";
+import { toProject } from "@/lib/data";
+import { first } from "@/lib/db";
 import type { Project } from "@/lib/types";
 
 export default async function EditProject({ params, searchParams }: PageProps<"/admin/projects/[id]">) {
@@ -14,10 +15,9 @@ export default async function EditProject({ params, searchParams }: PageProps<"/
   const isNew = id === "new";
   let p: Project | null = null;
   if (!isNew) {
-    const supabase = await createClient();
-    const { data } = await supabase.from("projects").select("*").eq("id", id).maybeSingle<Project>();
-    if (!data) notFound();
-    p = data;
+    const row = await first<Record<string, unknown>>("SELECT * FROM projects WHERE id = ?", id);
+    if (!row) notFound();
+    p = toProject(row);
   }
 
   return (

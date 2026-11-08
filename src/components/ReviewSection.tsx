@@ -9,7 +9,8 @@ import { ReviewForm } from "./ReviewForm";
 import { Stars } from "./Stars";
 
 export async function ReviewSection({ productId, slug }: { productId: string; slug: string }) {
-  const [reviews, user, settings] = await Promise.all([listReviews(productId), getCurrentUser(), getSettings()]);
+  const [user, settings] = await Promise.all([getCurrentUser(), getSettings()]);
+  const reviews = await listReviews(productId, user && { id: user.id, isAdmin: user.profile.is_admin });
   const visible = reviews.filter((r) => !r.hidden);
   const mine = user ? reviews.find((r) => r.user_id === user.id) : undefined;
   const avg = visible.length ? visible.reduce((n, r) => n + r.rating, 0) / visible.length : 0;

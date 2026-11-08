@@ -28,7 +28,7 @@ export function FileField({ defaultPath, defaultName }: { defaultPath?: string |
   return (
     <div>
       <span className="label">Downloadable file</span>
-      <input type="hidden" name="file_path" value={path} />
+      <input type="hidden" name="file_key" value={path} />
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3">
         {path ? (
           <span className="text-sm">

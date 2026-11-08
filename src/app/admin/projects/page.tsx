@@ -1,10 +1,9 @@
 import { AdminList } from "@/components/admin/AdminList";
-import { createClient } from "@/lib/supabase/server";
-import type { Project } from "@/lib/types";
+import { toProject } from "@/lib/data";
+import { all } from "@/lib/db";
 
 export default async function AdminProjects() {
-  const supabase = await createClient();
-  const { data } = await supabase.from("projects").select("*").order("sort_order").order("created_at", { ascending: false }).returns<Project[]>();
+  const data = (await all<Record<string, unknown>>("SELECT * FROM projects ORDER BY sort_order, created_at DESC")).map(toProject);
   return (
     <AdminList
       title="Projects"

@@ -20,7 +20,7 @@ export default async function ProductPage({ params }: PageProps<"/shop/[slug]">)
   if (!product) notFound();
 
   const [settings, user] = await Promise.all([getSettings(), getCurrentUser()]);
-  const owned = user && product.kind === "digital" ? await hasPurchased(product.id) : false;
+  const owned = user && product.kind === "digital" ? await hasPurchased(product.id, user.id) : false;
   const [cover, ...rest] = product.images;
 
   return (
@@ -59,7 +59,7 @@ export default async function ProductPage({ params }: PageProps<"/shop/[slug]">)
 
           <div className="mt-6">
             {product.kind === "free" ? (
-              product.file_path ? (
+              product.file_key ? (
                 <a href={`/api/download/${product.id}`} className="btn-primary px-6 py-2.5">
                   {text(settings, "free_download")}
                   {product.file_name ? ` ${product.file_name}` : ""}

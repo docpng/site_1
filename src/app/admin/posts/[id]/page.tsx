@@ -5,21 +5,21 @@ import { AdminForm, Field, TextArea, Toggle } from "@/components/admin/AdminForm
 import { DeleteButton } from "@/components/admin/DeleteButton";
 import { ImageField } from "@/components/admin/ImageField";
 import { MarkdownEditor } from "@/components/admin/MarkdownEditor";
-import { createClient } from "@/lib/supabase/server";
+import { toPost } from "@/lib/data";
+import { all, first } from "@/lib/db";
 import type { Post } from "@/lib/types";
 
 export default async function EditPost({ params, searchParams }: PageProps<"/admin/posts/[id]">) {
   const { id } = await params;
   const { saved } = await searchParams;
   const isNew = id === "new";
-  const supabase = await createClient();
   let p: Post | null = null;
   if (!isNew) {
-    const { data } = await supabase.from("posts").select("*").eq("id", id).maybeSingle<Post>();
-    if (!data) notFound();
-    p = data;
+    const row = await first<Record<string, unknown>>("SELECT * FROM posts WHERE id = ?", id);
+    if (!row) notFound();
+    p = toPost(row);
   }
-  const { data: projects } = await supabase.from("projects").select("id, title").order("title");
+  const projects = await all<{ id: string; title: string }>("SELECT id, title FROM projects ORDER BY title");
 
   return (
     <div>

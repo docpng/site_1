@@ -3,21 +3,14 @@ import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
-import type { Order } from "@/lib/types";
+import { listOrders } from "@/lib/data";
 import { NameForm } from "./NameForm";
 
 export const metadata: Metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const user = await requireUser("/account");
-  const supabase = await createClient();
-  const { data: orders } = await supabase
-    .from("orders")
-    .select("*, order_items(*)")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .returns<Order[]>();
+  const orders = await listOrders({ userId: user.id });
 
   return (
     <div className="container-page max-w-3xl py-14">
@@ -32,7 +25,7 @@ export default async function AccountPage() {
       </div>
 
       <section className="card mt-10 p-6">
-        <NameForm name={user.profile?.display_name ?? ""} />
+        <NameForm name={user.profile.display_name} />
       </section>
 
       <section className="mt-12">

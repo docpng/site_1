@@ -15,7 +15,7 @@ export function ImageField({ name, label, defaultValue }: { name: string; label:
     setBusy(true);
     setError(null);
     try {
-      setUrl(await uploadMedia(file, "covers"));
+      setUrl(await uploadMedia(file, name.includes("logo") || name.includes("favicon") ? "branding" : "covers"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {

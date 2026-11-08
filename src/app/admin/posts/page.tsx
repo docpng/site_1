@@ -1,11 +1,10 @@
 import { AdminList } from "@/components/admin/AdminList";
 import { formatDate } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
-import type { Post } from "@/lib/types";
+import { toPost } from "@/lib/data";
+import { all } from "@/lib/db";
 
 export default async function AdminPosts() {
-  const supabase = await createClient();
-  const { data } = await supabase.from("posts").select("*").order("created_at", { ascending: false }).returns<Post[]>();
+  const data = (await all<Record<string, unknown>>("SELECT * FROM posts ORDER BY created_at DESC")).map(toPost);
   return (
     <AdminList
       title="Blog posts"
