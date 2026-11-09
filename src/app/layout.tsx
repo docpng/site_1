@@ -7,6 +7,9 @@ import { text } from "@/lib/content";
 import { getSettings } from "@/lib/data";
 import "./globals.css";
 
+// Every page shows live data from D1 (settings, header, content), so render on each request.
+export const dynamic = "force-dynamic";
+
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 

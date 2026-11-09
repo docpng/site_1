@@ -14,7 +14,7 @@ export default async function AdminPosts() {
         href: `/admin/posts/${p.id}`,
         viewHref: `/blog/${p.slug}`,
         title: p.title,
-        meta: p.published ? `Published ${formatDate(p.published_at)}` : `Last edited ${formatDate(p.updated_at)}`,
+        meta: (p.featured ? "★ Featured · " : "") + (p.published ? `Published ${formatDate(p.published_at)}` : `Last edited ${formatDate(p.updated_at)}`),
         published: p.published,
       }))}
     />

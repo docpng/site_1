@@ -63,7 +63,10 @@ export default async function EditProduct({ params, searchParams }: PageProps<"/
           </div>
           <Field label="Sort order" name="sort_order" type="number" defaultValue={p?.sort_order ?? 0} help="Lower numbers show first." />
         </div>
-        <Toggle label="Published" name="published" defaultChecked={p?.published} help="Visible in the shop." />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Toggle label="Published" name="published" defaultChecked={p?.published} help="Visible in the shop." />
+          <Toggle label="Featured on homepage" name="featured" defaultChecked={p?.featured} help="Shown in the homepage products carousel." />
+        </div>
       </AdminForm>
     </div>
   );

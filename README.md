@@ -2,6 +2,7 @@
 
 A personal hub for projects, products and a build-log blog.
 
+- **Homepage**: hero, a featured blog post, and carousels of featured projects and products (mark items as Featured in the editor).
 - **Projects**: showcase pages with links, tags, related products and a build log.
 - **Blog / forum**: Markdown posts with tag filters and threaded comments from signed-in visitors.
 - **Shop**: paid digital downloads, physical goods (with shipping address collection) and free downloads, a cart, Stripe Checkout, and star reviews with a "verified purchase" badge.
@@ -78,13 +79,16 @@ And one **build** variable (Settings → Build → Variables and secrets, since 
 
 Every push to `main` then deploys. **Or from your machine:** `npm run deploy`.
 
-When the schema changes (a new file in `migrations/`), apply it with `npx wrangler d1 migrations apply site-1-db --remote`.
+When the schema changes (a new file in `migrations/`), apply it with `npm run db:migrate`.
+To do this automatically on every deploy, set the Workers Builds deploy command to
+`npx wrangler d1 migrations apply site-1-db --remote && npx opennextjs-cloudflare deploy`.
+Already-applied migrations are skipped, so this is safe to run each time.
 
 ## Local development
 
 ```bash
 cp .dev.vars.example .dev.vars          # fill in what you want to test
-npx wrangler d1 migrations apply site-1-db --local
+npm run db:migrate:local
 npm run dev                              # http://localhost:3000, with a local D1 + R2
 npm run preview                          # the real Workers runtime, http://localhost:8787
 ```
