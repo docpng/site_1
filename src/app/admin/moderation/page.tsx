@@ -1,32 +1,32 @@
 import Link from "next/link";
 import { moderate } from "@/app/actions/admin";
 import { formatDate } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
-
-type Row = {
-  id: string;
-  body: string;
-  hidden: boolean;
-  created_at: string;
-  author: { display_name: string } | null;
-};
+import { all } from "@/lib/db";
 
 export default async function Moderation() {
-  const supabase = await createClient();
-  const [{ data: comments }, { data: reviews }] = await Promise.all([
-    supabase
-      .from("comments")
-      .select("id, body, hidden, created_at, author:profiles(display_name), post:posts(title, slug)")
-      .order("created_at", { ascending: false })
-      .limit(100)
-      .returns<(Row & { post: { title: string; slug: string } | null })[]>(),
-    supabase
-      .from("reviews")
-      .select("id, body, title, rating, hidden, created_at, author:profiles(display_name), product:products(title, slug)")
-      .order("created_at", { ascending: false })
-      .limit(100)
-      .returns<(Row & { title: string; rating: number; product: { title: string; slug: string } | null })[]>(),
+  type Flat = { id: string; body: string; hidden: number; created_at: string; author_name: string | null; ref_title: string | null; ref_slug: string | null };
+  const [commentRows, reviewRows] = await Promise.all([
+    all<Flat>(
+      `SELECT c.id, c.body, c.hidden, c.created_at, u.display_name AS author_name, p.title AS ref_title, p.slug AS ref_slug
+         FROM comments c LEFT JOIN users u ON u.id = c.user_id LEFT JOIN posts p ON p.id = c.post_id
+        ORDER BY c.created_at DESC LIMIT 100`,
+    ),
+    all<Flat & { title: string; rating: number }>(
+      `SELECT r.id, r.body, r.title, r.rating, r.hidden, r.created_at, u.display_name AS author_name, p.title AS ref_title, p.slug AS ref_slug
+         FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN products p ON p.id = r.product_id
+        ORDER BY r.created_at DESC LIMIT 100`,
+    ),
   ]);
+  const base = (r: Flat) => ({
+    id: r.id,
+    body: r.body,
+    created_at: r.created_at,
+    hidden: r.hidden === 1,
+    author: r.author_name ? { display_name: r.author_name } : null,
+  });
+  const ref = (r: Flat) => (r.ref_slug ? { title: r.ref_title ?? "", slug: r.ref_slug } : null);
+  const comments = commentRows.map((r) => ({ ...base(r), post: ref(r) }));
+  const reviews = reviewRows.map((r) => ({ ...base(r), title: r.title, rating: r.rating, product: ref(r) }));
 
   return (
     <div className="space-y-12">

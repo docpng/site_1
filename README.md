@@ -8,95 +8,104 @@ A personal hub for projects, products and a build-log blog.
 - **Admin editor** at `/admin`: upload a logo, favicon, hero image and page banners; edit the wording on every section (headings, intros, buttons, menu labels); and manage projects, posts and products with a Markdown editor (live preview, drag-and-drop image upload), upload downloadable files, moderate comments and reviews, and track orders.
 - White-and-blue theme. Change the `--color-brand-*` values in `src/app/globals.css` to re-tint it.
 
-**Stack:** Next.js 16 (React 19, App Router) · Tailwind CSS 4 · Supabase (Postgres, Auth, Storage) · Stripe Checkout · deployed to **Cloudflare Workers** with [OpenNext](https://opennext.js.org/cloudflare).
+**Stack:** Next.js 16 (React 19, App Router) · Tailwind CSS 4 · **Cloudflare Workers** (via [OpenNext](https://opennext.js.org/cloudflare)) with **D1** (database) and **R2** (file storage) · Google & GitHub sign-in · Stripe Checkout.
+
+Everything except payments runs on your Cloudflare account. There's no separate database or auth service to manage.
 
 ---
 
-## 1. Set up Supabase
-
-1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor** and run each file in [`supabase/migrations/`](supabase/migrations) in order (`0001_init.sql`, then `0002_site_content.sql`). This creates the tables, row-level security policies and two storage buckets (`media` public, `downloads` private).
-3. **Authentication → URL Configuration**
-   - Site URL: your production URL (e.g. `https://site-1.<you>.workers.dev`)
-   - Redirect URLs: add `http://localhost:3000/auth/callback`, `http://localhost:8787/auth/callback` and `https://<your-domain>/auth/callback`
-4. **Authentication → Providers**: email sign-in links work out of the box. To use the Google / GitHub buttons, enable those providers and paste in their OAuth client IDs.
-5. From **Project Settings → API**, copy the project URL, the anon (publishable) key and the service role key.
-
-## 2. Set up Stripe
-
-1. From the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys), copy your secret key (start in test mode).
-2. Add a webhook endpoint at **Developers → Webhooks**:
-   - URL: `https://<your-domain>/api/stripe/webhook`
-   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
-   - Copy the signing secret (`whsec_…`).
-3. For local testing, use the Stripe CLI and put the secret it prints in `.env.local`:
-   ```bash
-   stripe listen --forward-to localhost:3000/api/stripe/webhook
-   ```
-
-## 3. Run locally
+## 1. Create the Cloudflare resources (once)
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in the values
-npm run dev
+npx wrangler login
+npx wrangler d1 create site-1-db
 ```
 
-Open http://localhost:3000, sign in once, then make yourself the admin in the Supabase SQL editor:
-
-```sql
-update public.profiles set is_admin = true
-where id = (select id from auth.users where email = 'you@example.com');
-```
-
-Refresh the page and an **Admin** link appears in the header.
-
-To test the actual Workers runtime locally, copy `.env.local` to `.dev.vars` and run `npm run preview` (serves on http://localhost:8787).
-
-## 4. Deploy to Cloudflare Workers
-
-**From your machine:**
+Copy the `database_id` it prints into `wrangler.jsonc` (replace `REPLACE_WITH_YOUR_D1_DATABASE_ID`), commit it (it isn't secret), then:
 
 ```bash
-npx wrangler login
-npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put STRIPE_SECRET_KEY
-npx wrangler secret put STRIPE_WEBHOOK_SECRET
-npm run deploy   # uses NEXT_PUBLIC_* from .env.local at build time
+npx wrangler r2 bucket create site-1-files
+npx wrangler d1 migrations apply site-1-db --remote
 ```
 
-**Or from GitHub with Workers Builds:** in the Cloudflare dashboard, go to Workers & Pages → Create → Import a repository, and pick this repo.
+## 2. Sign-in (Google and GitHub)
+
+Create an OAuth app with each provider and use these **callback / redirect URLs**:
+
+| Provider | Where | Redirect URL |
+| --- | --- | --- |
+| Google | Cloud Console → APIs & Services → Credentials → OAuth client (Web application) | `https://3darmaments.com/auth/callback/google` |
+| GitHub | Settings → Developer settings → OAuth Apps | `https://3darmaments.com/auth/callback/github` |
+
+For local development, also add `http://localhost:3000/auth/callback/google` (Google allows several redirect URIs; GitHub needs a separate dev OAuth app).
+On Google's consent screen the only authorized domain needed is `3darmaments.com`.
+
+A provider's button appears on `/login` only once its client ID and secret are set.
+
+**Admins:** anyone who signs in with a verified email listed in `ADMIN_EMAILS` (in `wrangler.jsonc`, currently `admin@3darmaments.com`) is an admin. Add more emails separated by commas.
+
+## 3. Stripe
+
+1. Copy your secret key from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys) (start in test mode).
+2. Add a webhook endpoint at **Developers → Webhooks**:
+   - URL: `https://3darmaments.com/api/stripe/webhook`
+   - Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
+   - Copy the signing secret (`whsec_…`).
+
+## 4. Secrets and settings
+
+Set these on the Worker (Cloudflare dashboard → **site-1 → Settings → Variables and Secrets**, or with `npx wrangler secret put NAME`):
+
+| Name | Purpose |
+| --- | --- |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub sign-in |
+| `STRIPE_SECRET_KEY` | Creating Checkout sessions |
+| `STRIPE_WEBHOOK_SECRET` | Verifying Stripe webhooks |
+
+And one **build** variable (Settings → Build → Variables and secrets, since it's baked in at build time):
+
+| Name | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | `https://3darmaments.com` (used for Stripe's return links) |
+
+## 5. Deploy
+
+**From GitHub with Workers Builds** (recommended): Cloudflare dashboard → Workers & Pages → site-1 → Settings → Build.
 - Build command: `npx opennextjs-cloudflare build`
 - Deploy command: `npx opennextjs-cloudflare deploy`
-- Build variables: `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- Secrets (runtime): `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
 
-The Worker name is `site-1` (set in `wrangler.jsonc`). After the first deploy, update the Supabase redirect URL, the Stripe webhook URL and `NEXT_PUBLIC_SITE_URL` to the real domain.
+Every push to `main` then deploys. **Or from your machine:** `npm run deploy`.
 
-## Environment variables
+When the schema changes (a new file in `migrations/`), apply it with `npx wrangler d1 migrations apply site-1-db --remote`.
 
-| Name | Where | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | build | Absolute URL used for Stripe return links |
-| `NEXT_PUBLIC_SUPABASE_URL` | build | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | build | Supabase anon / publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | secret | Webhook order writes and signed download links |
-| `STRIPE_SECRET_KEY` | secret | Creating Checkout sessions |
-| `STRIPE_WEBHOOK_SECRET` | secret | Verifying webhook signatures |
+## Local development
+
+```bash
+cp .dev.vars.example .dev.vars          # fill in what you want to test
+npx wrangler d1 migrations apply site-1-db --local
+npm run dev                              # http://localhost:3000, with a local D1 + R2
+npm run preview                          # the real Workers runtime, http://localhost:8787
+```
+
+To make yourself admin locally without sign-in set up, insert a user with your email, e.g.
+`npx wrangler d1 execute site-1-db --local --command "INSERT INTO users (id, email, display_name) VALUES ('me', 'admin@3darmaments.com', 'Me')"`.
 
 ## How it fits together
 
-- `src/app/`: pages. `admin/` is the editor; `actions/` holds the Server Actions (all admin actions call `requireAdmin()`).
-- `src/lib/content.ts`: every editable piece of site text and imagery, with defaults. Add a field there to make new text editable.
-- `src/lib/data.ts`: read queries. `src/lib/auth.ts`: current user and admin guards.
-- `src/proxy.ts`: refreshes the Supabase session cookie on each request.
-- `src/app/api/stripe/webhook/route.ts`: records orders after payment (idempotent, decrements stock).
-- `src/app/api/download/[id]/route.ts`: issues 60-second signed links. Free files go to anyone; paid files only to buyers.
-- Prices always come from the database at checkout, never from the browser. The "verified purchase" badge on reviews is computed by a database trigger.
+- `src/app/`: pages. `admin/` is the editor; `actions/` holds the Server Actions. Every admin action and route calls `requireAdmin()` or checks `is_admin`.
+- `src/lib/db.ts`: D1/R2 access. `src/lib/data.ts`: read queries. `src/lib/auth.ts`: sessions, current user, admin checks.
+- `src/lib/oauth.ts`, `src/app/auth/`: Google/GitHub sign-in (state + PKCE). Sessions are random tokens in an `HttpOnly` cookie; only their SHA-256 hash is stored.
+- `src/lib/content.ts`: every editable piece of site text and imagery, with defaults.
+- `migrations/`: the D1 schema.
+- Files: images live under `media/` in R2 and are served publicly from `/files/media/...`. Product files live under `downloads/` and are only served by `/api/download/[id]`: free files to anyone, paid files to buyers and admins.
+- `src/app/api/stripe/webhook/route.ts`: records orders after payment as a single D1 transaction. Repeated deliveries are ignored, and stock is decremented.
+- Prices always come from the database at checkout, never from the browser. The "verified purchase" badge is decided on the server.
 
 ## Known gaps / next steps
 
 - **Shipping rates and tax** aren't configured. Add `shipping_options` in `src/app/actions/checkout.ts`, or enable Stripe Tax.
-- **Emails:** buyers get Stripe's receipt. There are no custom order emails yet.
-- **File size:** Supabase's free plan limits uploads to 50 MB per file.
+- **Emails:** buyers get Stripe's receipt. There are no custom order emails.
+- **Upload size:** Workers accept uploads up to 100 MB on the Free/Pro plans, so files are capped at 95 MB.
 - **Spam:** comments require sign-in and can be hidden in **Admin → Moderation**, but there's no automatic spam filter.

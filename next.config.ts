@@ -3,7 +3,7 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {
   images: {
-    // Images are served straight from Supabase Storage; no optimizer needed on Workers.
+    // Images are served from R2 via /files/...; no optimizer needed on Workers.
     unoptimized: true,
   },
   turbopack: {

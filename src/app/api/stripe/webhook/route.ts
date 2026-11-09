@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
+import { db, first, newId } from "@/lib/db";
+import { secret as readSecret } from "@/lib/secrets";
 import { getStripe, webCrypto } from "@/lib/stripe";
-import { createAdminClient } from "@/lib/supabase/admin";
-import type { ProductKind } from "@/lib/types";
 
 /**
  * Stripe webhook. Configure it in the Stripe dashboard to send
@@ -9,7 +9,7 @@ import type { ProductKind } from "@/lib/types";
  * to https://<your-domain>/api/stripe/webhook.
  */
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = readSecret("STRIPE_WEBHOOK_SECRET");
   const signature = request.headers.get("stripe-signature");
   if (!secret || !signature) return new Response("Missing signature", { status: 400 });
 
@@ -42,57 +42,67 @@ export async function POST(request: Request) {
 }
 
 async function recordOrder(stripe: Stripe, session: Stripe.Checkout.Session) {
-  const db = createAdminClient();
-
-  const { data: existing } = await db.from("orders").select("id").eq("stripe_session_id", session.id).maybeSingle();
-  if (existing) return; // already recorded (Stripe can deliver an event more than once)
+  if (await first("SELECT 1 FROM orders WHERE stripe_session_id = ?", session.id)) return; // already recorded
 
   const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
     limit: 100,
     expand: ["data.price.product"],
   });
 
+  const orderId = newId();
   const userId = session.client_reference_id || session.metadata?.user_id || null;
-  const { data: order, error } = await db
-    .from("orders")
-    .insert({
-      user_id: userId,
-      email: session.customer_details?.email ?? null,
-      stripe_session_id: session.id,
-      status: "paid",
-      amount_total: session.amount_total ?? 0,
-      currency: session.currency ?? "usd",
-      shipping: session.collected_information?.shipping_details ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === "23505") return; // unique violation: a parallel delivery won the race
-    throw error;
-  }
+  const shipping = session.collected_information?.shipping_details ?? null;
 
   const items = lineItems.data.map((li) => {
     const product = li.price?.product as Stripe.Product | undefined;
     return {
-      order_id: order.id,
-      product_id: product?.metadata?.product_id ?? null,
+      productId: product?.metadata?.product_id ?? null,
       title: li.description ?? product?.name ?? "Item",
-      kind: (product?.metadata?.kind ?? "digital") as ProductKind,
-      unit_price_cents: li.price?.unit_amount ?? 0,
+      kind: product?.metadata?.kind ?? "digital",
+      unitPrice: li.price?.unit_amount ?? 0,
       quantity: li.quantity ?? 1,
     };
   });
 
-  const { error: itemsError } = await db.from("order_items").insert(items);
-  if (itemsError) {
-    await db.from("orders").delete().eq("id", order.id); // let Stripe retry cleanly
-    throw itemsError;
-  }
+  const d1 = db();
+  const statements = [
+    // INSERT OR IGNORE + the UNIQUE stripe_session_id makes duplicate deliveries harmless.
+    d1
+      .prepare(
+        `INSERT OR IGNORE INTO orders (id, user_id, email, stripe_session_id, status, amount_total, currency, shipping)
+         VALUES (?, (SELECT id FROM users WHERE id = ?), ?, ?, 'paid', ?, ?, ?)`,
+      )
+      .bind(
+        orderId,
+        userId,
+        session.customer_details?.email ?? null,
+        session.id,
+        session.amount_total ?? 0,
+        session.currency ?? "usd",
+        shipping ? JSON.stringify(shipping) : null,
+      ),
+    ...items.map((i) =>
+      d1
+        .prepare(
+          // Only add items if this delivery created the order; product_id is kept only if the product still exists.
+          `INSERT INTO order_items (id, order_id, product_id, title, kind, unit_price_cents, quantity)
+           SELECT ?, ?, (SELECT id FROM products WHERE id = ?), ?, ?, ?, ?
+            WHERE EXISTS (SELECT 1 FROM orders WHERE id = ?)`,
+        )
+        .bind(newId(), orderId, i.productId, i.title, i.kind, i.unitPrice, i.quantity, orderId),
+    ),
+    ...items
+      .filter((i) => i.kind === "physical" && i.productId)
+      .map((i) =>
+        d1
+          .prepare(
+            `UPDATE products SET stock = MAX(stock - ?, 0)
+              WHERE id = ? AND stock IS NOT NULL AND EXISTS (SELECT 1 FROM orders WHERE id = ?)`,
+          )
+          .bind(i.quantity, i.productId, orderId),
+      ),
+  ];
 
-  for (const item of items) {
-    if (item.kind === "physical" && item.product_id) {
-      await db.rpc("decrement_stock", { p_product_id: item.product_id, p_qty: item.quantity });
-    }
-  }
+  // D1 runs a batch as a single transaction: all of it is written, or none of it.
+  await d1.batch(statements);
 }

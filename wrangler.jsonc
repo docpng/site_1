@@ -15,6 +15,29 @@
       "service": "site-1"
     }
   ],
+  // Database: projects, posts, products, orders, users, sessions...
+  // Created with `npx wrangler d1 create site-1-db`. The code reads it as env.DB.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "site-1-db",
+      "database_id": "729103e4-a229-4bd8-8f55-59377f2f07f5",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // File storage: images (public) and downloadable product files (private).
+  // Create it once with `npx wrangler r2 bucket create site-1-files`.
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "site-1-files"
+    }
+  ],
+  "vars": {
+    // Anyone who signs in with a verified email in this list becomes an admin.
+    // Comma separated.
+    "ADMIN_EMAILS": "admin@3darmaments.com"
+  },
   "observability": {
     "enabled": true
   }

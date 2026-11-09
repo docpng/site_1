@@ -1,7 +1,6 @@
 import { setOrderStatus } from "@/app/actions/admin";
 import { formatDate, formatPrice } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
-import type { Order } from "@/lib/types";
+import { listOrders } from "@/lib/data";
 
 type Shipping = {
   name?: string;
@@ -9,13 +8,7 @@ type Shipping = {
 } | null;
 
 export default async function Orders() {
-  const supabase = await createClient();
-  const { data: orders } = await supabase
-    .from("orders")
-    .select("*, order_items(*)")
-    .order("created_at", { ascending: false })
-    .limit(200)
-    .returns<Order[]>();
+  const orders = await listOrders({ limit: 200 });
 
   return (
     <div>

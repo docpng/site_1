@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { CONTENT_FIELDS, type SiteContent } from "@/lib/content";
+import { first, isCheckViolation, isUniqueViolation, newId, now, run } from "@/lib/db";
 import { parseTags, slugify } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
 import type { ProductKind, SocialLink } from "@/lib/types";
 
 export type AdminFormState = { error?: string; ok?: boolean } | undefined;
@@ -18,17 +18,38 @@ const int = (fd: FormData, key: string, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-function friendlyError(error: { code?: string; message: string }) {
-  if (error.code === "23505") return "That slug is already used. Pick a different one.";
-  if (error.code === "PGRST204" || /column .*content/.test(error.message)) {
-    return "The database needs a small update first: run supabase/migrations/0002_site_content.sql in the Supabase SQL editor, then save again.";
-  }
-  if (error.code === "23514") return "Some values aren't allowed. Paid items need a price of at least 0.50; free items must be 0.";
-  return error.message;
+function friendlyError(err: unknown) {
+  if (isUniqueViolation(err)) return "That slug is already used. Pick a different one.";
+  if (isCheckViolation(err)) return "Some values aren't allowed. Paid items need a price of at least 0.50; free items must be 0.";
+  console.error(err);
+  return "Couldn't save. Please try again.";
 }
 
 function revalidateSite() {
   revalidatePath("/", "layout");
+}
+
+type Value = string | number | null;
+
+/** Inserts (no id) or updates (with id) a row and returns its id. Table and column names are fixed in code. */
+async function saveRow(table: "projects" | "posts" | "products", id: string, row: Record<string, Value>) {
+  const cols = Object.keys(row);
+  if (id) {
+    await run(
+      `UPDATE ${table} SET ${cols.map((c) => `${c} = ?`).join(", ")}, updated_at = ? WHERE id = ?`,
+      ...cols.map((c) => row[c]),
+      now(),
+      id,
+    );
+    return id;
+  }
+  const newRowId = newId();
+  await run(
+    `INSERT INTO ${table} (id, ${cols.join(", ")}) VALUES (?, ${cols.map(() => "?").join(", ")})`,
+    newRowId,
+    ...cols.map((c) => row[c]),
+  );
+  return newRowId;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,23 +74,28 @@ export async function saveSettings(_prev: AdminFormState, fd: FormData): Promise
     else content[key] = String(fd.get(`content.${key}`) ?? "").trim().slice(0, 2000);
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("site_settings")
-    .update({
-      site_name: str(fd, "site_name") || "My Site",
-      tagline: str(fd, "tagline"),
-      hero_title: str(fd, "hero_title"),
-      hero_subtitle: str(fd, "hero_subtitle"),
-      about_markdown: String(fd.get("about_markdown") ?? ""),
-      footer_text: str(fd, "footer_text"),
-      currency: (str(fd, "currency") || "usd").toLowerCase(),
-      social_links,
-      content,
-    })
-    .eq("id", 1);
+  const data = {
+    site_name: str(fd, "site_name") || "My Site",
+    tagline: str(fd, "tagline"),
+    hero_title: str(fd, "hero_title"),
+    hero_subtitle: str(fd, "hero_subtitle"),
+    about_markdown: String(fd.get("about_markdown") ?? ""),
+    footer_text: str(fd, "footer_text"),
+    currency: (str(fd, "currency") || "usd").toLowerCase().slice(0, 3),
+    social_links,
+    content,
+  };
 
-  if (error) return { error: friendlyError(error) };
+  try {
+    await run(
+      `INSERT INTO site_settings (id, data, updated_at) VALUES (1, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
+      JSON.stringify(data),
+      now(),
+    );
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
   revalidateSite();
   return { ok: true };
 }
@@ -83,35 +109,33 @@ export async function saveProject(_prev: AdminFormState, fd: FormData): Promise<
   const title = str(fd, "title");
   if (!title) return { error: "Title is required." };
 
-  const row = {
-    title,
-    slug: slugify(str(fd, "slug") || title),
-    summary: str(fd, "summary"),
-    body: String(fd.get("body") ?? ""),
-    cover_url: nullable(fd, "cover_url"),
-    tags: parseTags(str(fd, "tags")),
-    repo_url: nullable(fd, "repo_url"),
-    live_url: nullable(fd, "live_url"),
-    featured: bool(fd, "featured"),
-    published: bool(fd, "published"),
-    sort_order: int(fd, "sort_order"),
-  };
-
-  const supabase = await createClient();
-  const result = id
-    ? await supabase.from("projects").update(row).eq("id", id).select("id").single()
-    : await supabase.from("projects").insert(row).select("id").single();
-  if (result.error) return { error: friendlyError(result.error) };
+  let savedId: string;
+  try {
+    savedId = await saveRow("projects", id, {
+      title,
+      slug: slugify(str(fd, "slug") || title),
+      summary: str(fd, "summary"),
+      body: String(fd.get("body") ?? ""),
+      cover_url: nullable(fd, "cover_url"),
+      tags: JSON.stringify(parseTags(str(fd, "tags"))),
+      repo_url: nullable(fd, "repo_url"),
+      live_url: nullable(fd, "live_url"),
+      featured: bool(fd, "featured") ? 1 : 0,
+      published: bool(fd, "published") ? 1 : 0,
+      sort_order: int(fd, "sort_order"),
+    });
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
 
   revalidateSite();
-  if (!id) redirect(`/admin/projects/${result.data.id}?saved=1`);
+  if (!id) redirect(`/admin/projects/${savedId}?saved=1`);
   return { ok: true };
 }
 
 export async function deleteProject(fd: FormData) {
   await requireAdmin();
-  const supabase = await createClient();
-  await supabase.from("projects").delete().eq("id", str(fd, "id"));
+  await run("DELETE FROM projects WHERE id = ?", str(fd, "id"));
   revalidateSite();
   redirect("/admin/projects");
 }
@@ -126,48 +150,50 @@ export async function savePost(_prev: AdminFormState, fd: FormData): Promise<Adm
   if (!title) return { error: "Title is required." };
 
   const published = bool(fd, "published");
-  const supabase = await createClient();
-
   // Keep the original publish date when re-saving; set it the first time a post goes live.
   let published_at: string | null = null;
   if (published) {
     const chosen = str(fd, "published_at");
-    if (chosen) {
+    if (chosen && !Number.isNaN(Date.parse(chosen))) {
       published_at = new Date(chosen).toISOString();
     } else if (id) {
-      const { data } = await supabase.from("posts").select("published_at").eq("id", id).maybeSingle();
-      published_at = data?.published_at ?? new Date().toISOString();
+      const existing = await first<{ published_at: string | null }>("SELECT published_at FROM posts WHERE id = ?", id);
+      published_at = existing?.published_at ?? now();
     } else {
-      published_at = new Date().toISOString();
+      published_at = now();
     }
   }
 
-  const row = {
-    title,
-    slug: slugify(str(fd, "slug") || title),
-    excerpt: str(fd, "excerpt"),
-    body: String(fd.get("body") ?? ""),
-    cover_url: nullable(fd, "cover_url"),
-    tags: parseTags(str(fd, "tags")),
-    project_id: nullable(fd, "project_id"),
-    published,
-    published_at,
-  };
+  const projectId = nullable(fd, "project_id");
+  if (projectId && !(await first("SELECT 1 FROM projects WHERE id = ?", projectId))) {
+    return { error: "That project no longer exists." };
+  }
 
-  const result = id
-    ? await supabase.from("posts").update(row).eq("id", id).select("id").single()
-    : await supabase.from("posts").insert(row).select("id").single();
-  if (result.error) return { error: friendlyError(result.error) };
+  let savedId: string;
+  try {
+    savedId = await saveRow("posts", id, {
+      title,
+      slug: slugify(str(fd, "slug") || title),
+      excerpt: str(fd, "excerpt"),
+      body: String(fd.get("body") ?? ""),
+      cover_url: nullable(fd, "cover_url"),
+      tags: JSON.stringify(parseTags(str(fd, "tags"))),
+      project_id: projectId,
+      published: published ? 1 : 0,
+      published_at,
+    });
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
 
   revalidateSite();
-  if (!id) redirect(`/admin/posts/${result.data.id}?saved=1`);
+  if (!id) redirect(`/admin/posts/${savedId}?saved=1`);
   return { ok: true };
 }
 
 export async function deletePost(fd: FormData) {
   await requireAdmin();
-  const supabase = await createClient();
-  await supabase.from("posts").delete().eq("id", str(fd, "id"));
+  await run("DELETE FROM posts WHERE id = ?", str(fd, "id"));
   revalidateSite();
   redirect("/admin/posts");
 }
@@ -190,45 +216,54 @@ export async function saveProduct(_prev: AdminFormState, fd: FormData): Promise<
 
   let images: string[] = [];
   try {
-    images = JSON.parse(String(fd.get("images") ?? "[]"));
+    const parsed = JSON.parse(String(fd.get("images") ?? "[]"));
+    if (Array.isArray(parsed)) images = parsed.filter((u): u is string => typeof u === "string" && u.length > 0);
   } catch {}
 
-  const stockRaw = str(fd, "stock");
-  const row = {
-    title,
-    slug: slugify(str(fd, "slug") || title),
-    summary: str(fd, "summary"),
-    description: String(fd.get("description") ?? ""),
-    kind,
-    price_cents,
-    images: images.filter((u) => typeof u === "string" && u),
-    file_path: kind === "physical" ? null : nullable(fd, "file_path"),
-    file_name: kind === "physical" ? null : nullable(fd, "file_name"),
-    stock: kind === "physical" && stockRaw !== "" ? Math.max(0, int(fd, "stock")) : null,
-    project_id: nullable(fd, "project_id"),
-    published: bool(fd, "published"),
-    sort_order: int(fd, "sort_order"),
-  };
+  const fileKey = kind === "physical" ? null : nullable(fd, "file_key");
+  // Product files must live in the private downloads/ area of the bucket.
+  if (fileKey && !fileKey.startsWith("downloads/")) return { error: "Please re-upload the downloadable file." };
 
-  if (row.published && kind !== "physical" && !row.file_path) {
+  const published = bool(fd, "published");
+  if (published && kind !== "physical" && !fileKey) {
     return { error: "Upload the downloadable file before publishing a digital or free item." };
   }
 
-  const supabase = await createClient();
-  const result = id
-    ? await supabase.from("products").update(row).eq("id", id).select("id").single()
-    : await supabase.from("products").insert(row).select("id").single();
-  if (result.error) return { error: friendlyError(result.error) };
+  const projectId = nullable(fd, "project_id");
+  if (projectId && !(await first("SELECT 1 FROM projects WHERE id = ?", projectId))) {
+    return { error: "That project no longer exists." };
+  }
+
+  const stockRaw = str(fd, "stock");
+  let savedId: string;
+  try {
+    savedId = await saveRow("products", id, {
+      title,
+      slug: slugify(str(fd, "slug") || title),
+      summary: str(fd, "summary"),
+      description: String(fd.get("description") ?? ""),
+      kind,
+      price_cents,
+      images: JSON.stringify(images),
+      file_key: fileKey,
+      file_name: kind === "physical" ? null : nullable(fd, "file_name"),
+      stock: kind === "physical" && stockRaw !== "" ? Math.max(0, int(fd, "stock")) : null,
+      project_id: projectId,
+      published: published ? 1 : 0,
+      sort_order: int(fd, "sort_order"),
+    });
+  } catch (err) {
+    return { error: friendlyError(err) };
+  }
 
   revalidateSite();
-  if (!id) redirect(`/admin/products/${result.data.id}?saved=1`);
+  if (!id) redirect(`/admin/products/${savedId}?saved=1`);
   return { ok: true };
 }
 
 export async function deleteProduct(fd: FormData) {
   await requireAdmin();
-  const supabase = await createClient();
-  await supabase.from("products").delete().eq("id", str(fd, "id"));
+  await run("DELETE FROM products WHERE id = ?", str(fd, "id"));
   revalidateSite();
   redirect("/admin/products");
 }
@@ -243,9 +278,8 @@ export async function moderate(fd: FormData) {
   const id = str(fd, "id");
   const action = str(fd, "action");
 
-  const supabase = await createClient();
-  if (action === "delete") await supabase.from(table).delete().eq("id", id);
-  else await supabase.from(table).update({ hidden: action === "hide" }).eq("id", id);
+  if (action === "delete") await run(`DELETE FROM ${table} WHERE id = ?`, id);
+  else await run(`UPDATE ${table} SET hidden = ? WHERE id = ?`, action === "hide" ? 1 : 0, id);
 
   revalidateSite();
 }
@@ -254,7 +288,7 @@ export async function setOrderStatus(fd: FormData) {
   await requireAdmin();
   const status = str(fd, "status");
   if (!["paid", "shipped", "refunded", "cancelled"].includes(status)) return;
-  const supabase = await createClient();
-  await supabase.from("orders").update({ status }).eq("id", str(fd, "id"));
+  await run("UPDATE orders SET status = ? WHERE id = ?", status, str(fd, "id"));
   revalidatePath("/admin/orders");
 }
+

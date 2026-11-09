@@ -9,7 +9,8 @@ import { Avatar } from "./Avatar";
 import { CommentForm } from "./CommentForm";
 
 export async function CommentSection({ postId, slug }: { postId: string; slug: string }) {
-  const [comments, user, settings] = await Promise.all([listComments(postId), getCurrentUser(), getSettings()]);
+  const [user, settings] = await Promise.all([getCurrentUser(), getSettings()]);
+  const comments = await listComments(postId, user && { id: user.id, isAdmin: user.profile.is_admin });
   const visible = comments.filter((c) => !c.hidden);
   const roots = visible.filter((c) => !c.parent_id);
   const repliesTo = (id: string) => visible.filter((c) => c.parent_id === id);

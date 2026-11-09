@@ -1,25 +1,24 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { all, first } from "@/lib/db";
 import { formatDate, formatPrice } from "@/lib/format";
 
 export default async function AdminDashboard() {
-  const supabase = await createClient();
-  const count = (table: string) => supabase.from(table).select("*", { count: "exact", head: true });
-  const [projects, posts, products, orders, comments, recentOrders] = await Promise.all([
-    count("projects"),
-    count("posts"),
-    count("products"),
-    count("orders"),
-    count("comments"),
-    supabase.from("orders").select("id, created_at, amount_total, currency, status, email").order("created_at", { ascending: false }).limit(5),
-  ]);
+  const counts = await first<Record<string, number>>(
+    `SELECT (SELECT COUNT(*) FROM projects) AS projects, (SELECT COUNT(*) FROM posts) AS posts,
+            (SELECT COUNT(*) FROM products) AS products, (SELECT COUNT(*) FROM orders) AS orders,
+            (SELECT COUNT(*) FROM comments) AS comments`,
+  );
+  const recentOrders = await all<{ id: string; created_at: string; amount_total: number; currency: string; status: string; email: string | null }>(
+    "SELECT id, created_at, amount_total, currency, status, email FROM orders ORDER BY created_at DESC LIMIT 5",
+  );
+  const n = (k: string) => counts?.[k] ?? 0;
 
   const stats = [
-    { label: "Projects", value: projects.count ?? 0, href: "/admin/projects" },
-    { label: "Posts", value: posts.count ?? 0, href: "/admin/posts" },
-    { label: "Products", value: products.count ?? 0, href: "/admin/products" },
-    { label: "Orders", value: orders.count ?? 0, href: "/admin/orders" },
-    { label: "Comments", value: comments.count ?? 0, href: "/admin/moderation" },
+    { label: "Projects", value: n("projects"), href: "/admin/projects" },
+    { label: "Posts", value: n("posts"), href: "/admin/posts" },
+    { label: "Products", value: n("products"), href: "/admin/products" },
+    { label: "Orders", value: n("orders"), href: "/admin/orders" },
+    { label: "Comments", value: n("comments"), href: "/admin/moderation" },
   ];
 
   return (
@@ -42,8 +41,8 @@ export default async function AdminDashboard() {
 
       <h2 className="mt-12 text-lg font-semibold">Recent orders</h2>
       <ul className="card mt-3 divide-y divide-line">
-        {(recentOrders.data ?? []).length === 0 && <li className="p-4 text-sm text-muted">No orders yet.</li>}
-        {(recentOrders.data ?? []).map((o) => (
+        {recentOrders.length === 0 && <li className="p-4 text-sm text-muted">No orders yet.</li>}
+        {recentOrders.map((o) => (
           <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
             <span>{formatDate(o.created_at)}</span>
             <span className="text-muted">{o.email}</span>

@@ -1,15 +1,15 @@
 import { AdminList } from "@/components/admin/AdminList";
 import { formatPrice, kindLabel } from "@/lib/format";
 import { getSettings } from "@/lib/data";
-import { createClient } from "@/lib/supabase/server";
-import type { Product } from "@/lib/types";
+import { toProduct } from "@/lib/data";
+import { all } from "@/lib/db";
 
 export default async function AdminProducts() {
-  const supabase = await createClient();
-  const [{ data }, settings] = await Promise.all([
-    supabase.from("products").select("*").order("sort_order").order("created_at", { ascending: false }).returns<Product[]>(),
+  const [rows, settings] = await Promise.all([
+    all<Record<string, unknown>>("SELECT * FROM products ORDER BY sort_order, created_at DESC"),
     getSettings(),
   ]);
+  const data = rows.map(toProduct);
   return (
     <AdminList
       title="Products & downloads"
