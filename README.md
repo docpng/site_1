@@ -60,8 +60,8 @@ Set these on the Worker (Cloudflare dashboard → **site-1 → Settings → Vari
 
 | Name | Purpose |
 | --- | --- |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub sign-in |
+| `GOOGLE_CLIENT_SECRET` | Google sign-in (the client ID is in `wrangler.jsonc`) |
+| `GITHUB_CLIENT_SECRET` | GitHub sign-in (the client ID is in `wrangler.jsonc`) |
 | `STRIPE_SECRET_KEY` | Creating Checkout sessions |
 | `STRIPE_WEBHOOK_SECRET` | Verifying Stripe webhooks |
 
