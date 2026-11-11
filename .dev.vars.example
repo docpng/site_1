@@ -3,11 +3,14 @@
 # (or Cloudflare dashboard -> site-1 -> Settings -> Variables and Secrets).
 
 # Google sign-in (Google Cloud Console -> APIs & Services -> Credentials)
-GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_ID is set in wrangler.jsonc; uncomment to override locally.
+# GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
 # GitHub sign-in (GitHub -> Settings -> Developer settings -> OAuth Apps)
-GITHUB_CLIENT_ID=
+# GITHUB_CLIENT_ID is set in wrangler.jsonc. GitHub needs a separate OAuth app for localhost;
+# put its ID here to override locally.
+# GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 
 # Stripe (Dashboard -> Developers)

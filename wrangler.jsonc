@@ -36,7 +36,12 @@
   "vars": {
     // Anyone who signs in with a verified email in this list becomes an admin.
     // Comma separated.
-    "ADMIN_EMAILS": "admin@3darmaments.com"
+    "ADMIN_EMAILS": "admin@3darmaments.com",
+    // OAuth client IDs are public (they appear in the sign-in URL), so they live here.
+    // The matching client SECRETS must stay out of this file: set them as Secrets in the
+    // Cloudflare dashboard (GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_SECRET).
+    "GOOGLE_CLIENT_ID": "717072966609-a9flskrsf9379u2ttn36i1jj5hhi4s69.apps.googleusercontent.com",
+    "GITHUB_CLIENT_ID": "Ov23liQw825LQr7DjOI1"
   },
   "observability": {
     "enabled": true
