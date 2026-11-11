@@ -52,6 +52,7 @@ export type Post = {
   cover_url: string | null;
   tags: string[];
   project_id: string | null;
+  featured: boolean;
   published: boolean;
   published_at: string | null;
   created_at: string;
@@ -71,6 +72,7 @@ export type Product = {
   file_name: string | null;
   stock: number | null;
   project_id: string | null;
+  featured: boolean;
   published: boolean;
   sort_order: number;
   created_at: string;

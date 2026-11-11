@@ -59,7 +59,10 @@ export default async function EditPost({ params, searchParams }: PageProps<"/adm
             help="Optional. Defaults to when you first publish."
           />
         </div>
-        <Toggle label="Published" name="published" defaultChecked={p?.published} help="Visible on the blog and open for comments." />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Toggle label="Published" name="published" defaultChecked={p?.published} help="Visible on the blog and open for comments." />
+          <Toggle label="Featured on homepage" name="featured" defaultChecked={p?.featured} help="The newest featured post gets the big spot on the homepage." />
+        </div>
       </AdminForm>
     </div>
   );

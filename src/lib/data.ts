@@ -14,11 +14,11 @@ export function toProject(r: Row): Project {
 }
 
 export function toPost(r: Row): Post {
-  return { ...(r as unknown as Post), tags: parseList(r.tags), published: bool(r.published) };
+  return { ...(r as unknown as Post), tags: parseList(r.tags), featured: bool(r.featured), published: bool(r.published) };
 }
 
 export function toProduct(r: Row): Product {
-  return { ...(r as unknown as Product), images: parseList(r.images), published: bool(r.published) };
+  return { ...(r as unknown as Product), images: parseList(r.images), featured: bool(r.featured), published: bool(r.published) };
 }
 
 function author(r: Row): Author | null {
@@ -67,8 +67,9 @@ export async function getProject(slug: string) {
 // ---------------------------------------------------------------------------
 // Posts & comments
 // ---------------------------------------------------------------------------
-export async function listPosts(opts: { limit?: number; projectId?: string; tag?: string } = {}) {
+export async function listPosts(opts: { limit?: number; projectId?: string; tag?: string; featured?: boolean } = {}) {
   const where = ["published = 1"];
+  if (opts.featured) where.push("featured = 1");
   const params: (string | number)[] = [];
   if (opts.projectId) {
     where.push("project_id = ?");
@@ -108,8 +109,9 @@ export async function listComments(postId: string, viewer?: { id: string; isAdmi
 // ---------------------------------------------------------------------------
 // Products & reviews
 // ---------------------------------------------------------------------------
-export async function listProducts(opts: { kind?: string; projectId?: string; limit?: number } = {}) {
+export async function listProducts(opts: { kind?: string; projectId?: string; limit?: number; featured?: boolean } = {}) {
   const where = ["published = 1"];
+  if (opts.featured) where.push("featured = 1");
   const params: (string | number)[] = [];
   if (opts.kind) {
     where.push("kind = ?");

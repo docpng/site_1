@@ -19,7 +19,7 @@ export default async function AdminProducts() {
         href: `/admin/products/${p.id}`,
         viewHref: `/shop/${p.slug}`,
         title: p.title,
-        meta: `${kindLabel[p.kind]} · ${p.kind === "free" ? "Free" : formatPrice(p.price_cents, settings.currency)}${
+        meta: `${p.featured ? "★ Featured · " : ""}${kindLabel[p.kind]} · ${p.kind === "free" ? "Free" : formatPrice(p.price_cents, settings.currency)}${
           p.kind === "physical" && p.stock !== null ? ` · ${p.stock} in stock` : ""
         }`,
         published: p.published,

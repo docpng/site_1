@@ -20,6 +20,9 @@ const int = (fd: FormData, key: string, fallback = 0) => {
 
 function friendlyError(err: unknown) {
   if (isUniqueViolation(err)) return "That slug is already used. Pick a different one.";
+  if (err instanceof Error && /no such column: featured/i.test(err.message)) {
+    return "The database needs an update: run `npx wrangler d1 migrations apply site-1-db --remote`, then save again.";
+  }
   if (isCheckViolation(err)) return "Some values aren't allowed. Paid items need a price of at least 0.50; free items must be 0.";
   console.error(err);
   return "Couldn't save. Please try again.";
@@ -179,6 +182,7 @@ export async function savePost(_prev: AdminFormState, fd: FormData): Promise<Adm
       cover_url: nullable(fd, "cover_url"),
       tags: JSON.stringify(parseTags(str(fd, "tags"))),
       project_id: projectId,
+      featured: bool(fd, "featured") ? 1 : 0,
       published: published ? 1 : 0,
       published_at,
     });
@@ -249,6 +253,7 @@ export async function saveProduct(_prev: AdminFormState, fd: FormData): Promise<
       file_name: kind === "physical" ? null : nullable(fd, "file_name"),
       stock: kind === "physical" && stockRaw !== "" ? Math.max(0, int(fd, "stock")) : null,
       project_id: projectId,
+      featured: bool(fd, "featured") ? 1 : 0,
       published: published ? 1 : 0,
       sort_order: int(fd, "sort_order"),
     });

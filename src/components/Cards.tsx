@@ -57,3 +57,26 @@ export function ProductCard({ product, currency }: { product: Product; currency:
     </Link>
   );
 }
+
+export function FeaturedPostCard({ post, label, cta }: { post: Post; label: string; cta: string }) {
+  return (
+    <Link
+      href={`/blog/${post.slug}`}
+      className="card group grid overflow-hidden transition hover:shadow-md md:grid-cols-[1.15fr_1fr]"
+    >
+      {post.cover_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={post.cover_url} alt="" className="aspect-[16/10] h-full w-full object-cover md:aspect-auto" />
+      ) : (
+        <div className="aspect-[16/10] h-full w-full bg-gradient-to-br from-brand-600 via-brand-500 to-brand-300 md:aspect-auto" aria-hidden />
+      )}
+      <div className="flex flex-col justify-center p-6 sm:p-10">
+        <span className="badge self-start">{label}</span>
+        <p className="mt-4 text-xs font-medium tracking-wide text-brand-600 uppercase">{formatDate(post.published_at ?? post.created_at)}</p>
+        <h3 className="mt-2 text-2xl font-bold tracking-tight text-ink group-hover:text-brand-700 sm:text-3xl">{post.title}</h3>
+        {post.excerpt && <p className="mt-3 line-clamp-4 text-slate-600">{post.excerpt}</p>}
+        <span className="mt-6 text-sm font-semibold text-brand-700">{cta}</span>
+      </div>
+    </Link>
+  );
+}
